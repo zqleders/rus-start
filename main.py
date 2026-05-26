@@ -3,15 +3,11 @@ import json
 import requests
 from playwright.sync_api import sync_playwright
 
-def send_tg_msg(message):
-    token = os.environ.get("TG_TOKEN")
-    chat_id = os.environ.get("TG_CHAT_ID")
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
-    requests.post(url, data={"chat_id": chat_id, "text": message})
-
 def send_tg_photo(photo_path, caption):
     token = os.environ.get("TG_TOKEN")
     chat_id = os.environ.get("TG_CHAT_ID")
+    if not token or not chat_id:
+        return
     url = f"https://api.telegram.org/bot{token}/sendPhoto"
     with open(photo_path, 'rb') as f:
         requests.post(url, data={"chat_id": chat_id, "caption": caption}, files={"photo": f})
@@ -33,31 +29,38 @@ def run():
                 page.fill('input[name="username"]', acc["user"])
                 page.fill('input[name="password"]', acc["pass"])
                 page.click('button[type="submit"]')
-                page.wait_for_url("**/server/**", timeout=30000)
                 
-                # 2. 访问控制台
+                # 2. 验证登录是否成功
+                # 检查是否存在 "Welcome back" 元素
+                welcome_element = page.locator('p:has-text("Welcome back")')
+                if welcome_element.count() == 0:
+                    page.screenshot(path=screenshot_path)
+                    send_tg_photo(screenshot_path, f"账号 {acc['user']} 登录失败：未检测到 'Welcome back' 标识。")
+                    context.close()
+                    continue # 中断当前账号，继续下一个
+                
+                # 3. 访问目标控制台页面
                 page.goto(acc["url"])
                 page.wait_for_load_state("networkidle")
                 
-                # 3. 点击 Start (使用更稳健的选择器)
-                # 选择所有包含 "Start" 文本的 button，并强制点击第一个
+                # 4. 点击 Start 按钮
                 start_btn = page.locator('button:has-text("Start")').first
                 start_btn.wait_for(state="visible", timeout=15000)
                 start_btn.click(force=True)
                 
-                # 成功后截图并发送
+                # 5. 截图反馈
+                page.wait_for_timeout(2000)
                 page.screenshot(path=screenshot_path)
                 send_tg_photo(screenshot_path, f"账号 {acc['user']} 操作成功：已点击 Start")
                 
             except Exception as e:
-                # 失败后截图并发送
                 page.screenshot(path=screenshot_path)
-                send_tg_photo(screenshot_path, f"账号 {acc['user']} 操作失败: {str(e)[:100]}")
+                send_tg_photo(screenshot_path, f"账号 {acc['user']} 运行异常: {str(e)[:100]}")
             
             finally:
                 context.close()
                 if os.path.exists(screenshot_path):
-                    os.remove(screenshot_path) # 发送后删除本地图片
+                    os.remove(screenshot_path)
         
         browser.close()
 
