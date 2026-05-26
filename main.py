@@ -17,8 +17,8 @@ def run():
     login_url = os.environ.get("LOGIN_URL")
     
     # 设定坐标
-    CLICK_X = 1427
-    CLICK_Y = 173
+    CLICK_X = 1370
+    CLICK_Y = 100
     
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
