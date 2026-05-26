@@ -14,6 +14,7 @@ def send_tg_photo(photo_path, caption):
 
 def run():
     accounts = json.loads(os.environ.get("ACCOUNTS_JSON", "[]"))
+    login_url = os.environ.get("LOGIN_URL")
     
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
@@ -24,17 +25,15 @@ def run():
             screenshot_path = f"screenshot_{acc['user']}.png"
             
             try:
-                # 1. 登录 (保留你原来确认有效的点击逻辑)
-                page.goto("https://my.rustix.me/auth/login")
+                # 1. 使用全局 login_url 登录
+                page.goto(login_url)
                 page.fill('input[name="username"]', acc["user"])
                 page.fill('input[name="password"]', acc["pass"])
-                # 触发登录按钮
                 page.click('button[type="submit"]')
                 
-                # 2. 验证登录成功 (新增加的校验)
-                # 等待页面出现 "Welcome back" 以确认登录已完成
+                # 2. 验证登录成功
                 try:
-                    page.wait_for_selector('p:has-text("Welcome back")', timeout=10000)
+                    page.wait_for_selector('p:has-text("Welcome back")', timeout=15000)
                 except:
                     page.screenshot(path=screenshot_path)
                     send_tg_photo(screenshot_path, f"账号 {acc['user']} 登录失败：未检测到 'Welcome back'")
@@ -50,7 +49,7 @@ def run():
                 start_btn.wait_for(state="visible", timeout=15000)
                 start_btn.click(force=True)
                 
-                # 5. 最终状态截图
+                # 5. 截图反馈
                 page.wait_for_timeout(2000)
                 page.screenshot(path=screenshot_path)
                 send_tg_photo(screenshot_path, f"账号 {acc['user']} 操作成功：已点击 Start")
