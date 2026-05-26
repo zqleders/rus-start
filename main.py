@@ -22,10 +22,10 @@ def run():
         for acc in accounts:
             context = browser.new_context()
             page = context.new_page()
-            screenshot_path = f"debug_marker_{acc['user']}.png"
+            screenshot_path = f"final_click_{acc['user']}.png"
             
             try:
-                # 登录与访问逻辑保持不变
+                # 1. 登录与访问
                 page.goto(login_url)
                 page.fill('input[name="username"]', acc["user"])
                 page.fill('input[name="password"]', acc["pass"])
@@ -34,33 +34,33 @@ def run():
                 page.goto(acc["url"])
                 page.wait_for_load_state("domcontentloaded")
                 
-                # 调试逻辑：定位 Start 按钮并标记红点
-                start_btn_xpath = "//button[contains(normalize-space(), 'Start')]"
-                page.wait_for_selector(start_btn_xpath, timeout=20000)
+                # 2. 定位按钮并执行偏移坐标点击
+                # 依然使用 XPath 找到元素，但目的是获取它的原始位置，不执行 XPath 点击
+                start_btn = page.locator("//button[contains(normalize-space(), 'Start')]").first
+                box = start_btn.bounding_box()
                 
-                # 在页面上绘制红点标记
-                page.evaluate(f"""() => {{
-                    const el = document.evaluate("{start_btn_xpath}", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-                    if (el) {{
-                        const marker = document.createElement('div');
-                        marker.style.position = 'absolute';
-                        marker.style.left = (el.getBoundingClientRect().left + window.scrollX) + 'px';
-                        marker.style.top = (el.getBoundingClientRect().top + window.scrollY) + 'px';
-                        marker.style.width = '20px';
-                        marker.style.height = '20px';
-                        marker.style.backgroundColor = 'red';
-                        marker.style.borderRadius = '50%';
-                        marker.style.zIndex = '9999';
-                        document.body.appendChild(marker);
-                    }}
-                }}""")
+                if box:
+                    # 设定偏移量：往右多一点，往下一点
+                    # 你可以根据上次红点偏离的程度继续修改这些数值
+                    offset_x = 15  # 向右增加像素
+                    offset_y = 10  # 向下增加像素
+                    
+                    target_x = box['x'] + (box['width'] / 2) + offset_x
+                    target_y = box['y'] + (box['height'] / 2) + offset_y
+                    
+                    # 执行精确坐标点击
+                    page.mouse.click(target_x, target_y)
+                else:
+                    raise Exception("未能定位到按钮框体")
                 
+                # 3. 截图反馈
                 page.wait_for_timeout(2000)
                 page.screenshot(path=screenshot_path)
-                send_tg_photo(screenshot_path, f"账号 {acc['user']} 调试：红点已标注在检测到的元素位置")
+                send_tg_photo(screenshot_path, f"账号 {acc['user']} 已执行偏移后的坐标点击")
                 
             except Exception as e:
-                send_tg_photo(screenshot_path, f"账号 {acc['user']} 调试失败: {str(e)[:100]}")
+                page.screenshot(path=screenshot_path)
+                send_tg_photo(screenshot_path, f"账号 {acc['user']} 失败: {str(e)[:50]}")
             
             finally:
                 context.close()
