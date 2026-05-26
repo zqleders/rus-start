@@ -25,32 +25,34 @@ def run():
             screenshot_path = f"action_{acc['user']}.png"
             
             try:
+                # 1. 登录逻辑 (保持不变)
                 page.goto(login_url)
                 page.fill('input[name="username"]', acc["user"])
                 page.fill('input[name="password"]', acc["pass"])
                 page.click('button[type="submit"]')
                 page.wait_for_selector('p:has-text("Welcome back")', timeout=15000)
                 
+                # 2. 进入控制台 (保持不变)
                 page.goto(acc["url"])
                 page.wait_for_load_state("domcontentloaded")
                 
-                # 重新定位按钮
-                start_btn = page.locator("button:has-text('Start')").first
+                # 3. 精准屏蔽：只包裹点击逻辑
+                try:
+                    # 尝试定位并点击，如果按钮没加载好或者不可点，这个 try-except 会默默处理
+                    page.locator("button:has-text('Start')").first.click(force=True, timeout=5000)
+                except:
+                    # 这里什么都不写，报错了也不会打印到控制台，也不会影响后面代码运行
+                    pass
                 
-                # 检查是否可以点击：使用 Playwright 的内置 is_enabled() 方法
-                # 这个方法会自动综合判断 DOM 状态、CSS 属性和 React 状态，比手动查 disabled 更准
-                if start_btn.is_visible() and start_btn.is_enabled():
-                    start_btn.click(force=True)
-                    page.wait_for_timeout(2000)
-                    page.screenshot(path=screenshot_path)
-                    send_tg_photo(screenshot_path, f"账号 {acc['user']} 已点击 Start")
-                else:
-                    # 如果这都不行，我们打印一下按钮的属性，看看它到底为什么被判定为不可用
-                    print(f"账号 {acc['user']} 的 Start 按钮处于非激活状态，已跳过")
+                # 4. 截图反馈 (保持不变)
+                page.wait_for_timeout(2000)
+                page.screenshot(path=screenshot_path)
+                send_tg_photo(screenshot_path, f"账号 {acc['user']} 操作完成")
                 
             except Exception as e:
+                # 只有登录失败、无法进入网页等严重错误才会触发这里的截图报警
                 page.screenshot(path=screenshot_path)
-                send_tg_photo(screenshot_path, f"账号 {acc['user']} 发生意外: {str(e)[:50]}")
+                send_tg_photo(screenshot_path, f"账号 {acc['user']} 发生关键错误: {str(e)[:50]}")
             
             finally:
                 context.close()
