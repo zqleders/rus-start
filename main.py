@@ -40,8 +40,11 @@ def run():
                 page.goto(acc["url"])
                 page.wait_for_load_state("domcontentloaded")
                 
-                # 3. 执行点击
-                page.mouse.click(CLICK_X, CLICK_Y)
+                # 3. 增强版点击：模拟真实鼠标移动与按下
+                page.mouse.move(CLICK_X, CLICK_Y)
+                page.mouse.down()
+                page.wait_for_timeout(100) # 模拟按压时长
+                page.mouse.up()
                 
                 # 4. 绘制红点（保留功能以便确认）
                 page.evaluate(f"""() => {{
@@ -60,7 +63,7 @@ def run():
                 # 5. 截图反馈
                 page.wait_for_timeout(2000)
                 page.screenshot(path=screenshot_path)
-                send_tg_photo(screenshot_path, f"账号 {acc['user']} 已执行点击并标注")
+                send_tg_photo(screenshot_path, f"账号 {acc['user']} 已执行组合点击并标注")
                 
             except Exception as e:
                 page.screenshot(path=screenshot_path)
