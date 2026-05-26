@@ -17,59 +17,40 @@ def run():
     login_url = os.environ.get("LOGIN_URL")
     
     with sync_playwright() as p:
+        # 必须固定窗口大小，否则坐标点击会因为分辨率变化而失效
         browser = p.chromium.launch(headless=True)
         
         for acc in accounts:
-            context = browser.new_context()
+            context = browser.new_context(viewport={"width": 1280, "height": 720})
             page = context.new_page()
-            screenshot_path = f"debug_marker_{acc['user']}.png"
+            screenshot_path = f"action_{acc['user']}.png"
             
             try:
-                # 登录与访问逻辑保持不变
+                # 1. 登录
                 page.goto(login_url)
                 page.fill('input[name="username"]', acc["user"])
                 page.fill('input[name="password"]', acc["pass"])
                 page.click('button[type="submit"]')
                 page.wait_for_selector('p:has-text("Welcome back")', timeout=15000)
+                
+                # 2. 进入控制台并等待页面加载完全
                 page.goto(acc["url"])
-                page.wait_for_load_state("domcontentloaded")
+                page.wait_for_load_state("networkidle")
+                page.wait_for_timeout(3000) # 给页面渲染留出余量
                 
-                # 调试逻辑：定位 Start 按钮并标记红点
-                start_btn_xpath = "//button[contains(normalize-space(), 'Start')]"
-                page.wait_for_selector(start_btn_xpath, timeout=20000)
+                # 3. 直接使用测试通过的坐标点击 (X, Y)
+                # 请将下面的 x 和 y 替换为你确认正确的红点坐标值
+                # 假设你红点对应的坐标是 x, y
+                page.mouse.click(x=730, y=170) 
                 
-                # --- 调整核心逻辑：增加相对于按钮左上角的偏移量 ---
-                # 设定偏移像素 (X=向右, Y=向下)，将红点移到按钮中心
-                offset_x = 35 # 按钮约 70px 宽，这里设为中心点附近
-                offset_y = 15 # 按钮约 30px 高，这里设为中心点附近
-
-                # 在页面上绘制红点标记，应用了偏移量
-                page.evaluate(f"""() => {{
-                    const el = document.evaluate("{start_btn_xpath}", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-                    if (el) {{
-                        const rect = el.getBoundingClientRect();
-                        const marker = document.createElement('div');
-                        marker.style.position = 'absolute';
-                        // 使用 rect.left + window.scrollX 加上偏移量调整
-                        marker.style.left = (rect.left + window.scrollX + {offset_x}) + 'px';
-                        // 使用 rect.top + window.scrollY 加上偏移量调整
-                        marker.style.top = (rect.top + window.scrollY + {offset_y}) + 'px';
-                        marker.style.width = '10px';  // 稍微减小标记尺寸，以便更精确地观察位置
-                        marker.style.height = '10px';
-                        marker.style.backgroundColor = 'red';
-                        marker.style.borderRadius = '50%';
-                        marker.style.zIndex = '9999';
-                        document.body.appendChild(marker);
-                    }}
-                }}""")
-                
-                # 这里依然不要执行点击，等待你确认红点位置
-                page.wait_for_timeout(2000)
+                # 4. 结果反馈
+                page.wait_for_timeout(3000)
                 page.screenshot(path=screenshot_path)
-                send_tg_photo(screenshot_path, f"账号 {acc['user']} 调试：红点位置调整尝试")
+                send_tg_photo(screenshot_path, f"账号 {acc['user']} 已执行固定坐标点击")
                 
             except Exception as e:
-                send_tg_photo(screenshot_path, f"账号 {acc['user']} 调试失败: {str(e)[:100]}")
+                page.screenshot(path=screenshot_path)
+                send_tg_photo(screenshot_path, f"账号 {acc['user']} 失败: {str(e)[:50]}")
             
             finally:
                 context.close()
