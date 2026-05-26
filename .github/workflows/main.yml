@@ -140,6 +140,7 @@ jobs:
       - name: Run automation script
         env:
           ACCOUNTS_JSON: ${{ secrets.ACCOUNTS_JSON }}
+          LOGIN_URL: ${{ secrets.LOGIN_URL }}
           TG_TOKEN: ${{ secrets.TG_TOKEN }}
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
         run: python main.py
