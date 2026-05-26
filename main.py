@@ -16,37 +16,50 @@ def run():
     accounts = json.loads(os.environ.get("ACCOUNTS_JSON", "[]"))
     login_url = os.environ.get("LOGIN_URL")
     
+    # 设定坐标：请根据你的红点测试结果调整这里
+    CLICK_X = 730
+    CLICK_Y = 170
+    
     with sync_playwright() as p:
-        # 必须固定窗口大小，否则坐标点击会因为分辨率变化而失效
         browser = p.chromium.launch(headless=True)
         
         for acc in accounts:
+            # 保持分辨率与测试环境一致
             context = browser.new_context(viewport={"width": 1280, "height": 720})
             page = context.new_page()
             screenshot_path = f"action_{acc['user']}.png"
             
             try:
-                # 1. 登录
                 page.goto(login_url)
                 page.fill('input[name="username"]', acc["user"])
                 page.fill('input[name="password"]', acc["pass"])
                 page.click('button[type="submit"]')
                 page.wait_for_selector('p:has-text("Welcome back")', timeout=15000)
                 
-                # 2. 进入控制台并等待页面加载完全
                 page.goto(acc["url"])
                 page.wait_for_load_state("networkidle")
-                page.wait_for_timeout(3000) # 给页面渲染留出余量
-                
-                # 3. 直接使用测试通过的坐标点击 (X, Y)
-                # 请将下面的 x 和 y 替换为你确认正确的红点坐标值
-                # 假设你红点对应的坐标是 x, y
-                page.mouse.click(x=730, y=170) 
-                
-                # 4. 结果反馈
                 page.wait_for_timeout(3000)
+                
+                # 1. 执行点击
+                page.mouse.click(CLICK_X, CLICK_Y)
+                
+                # 2. 绘制红点（保留此功能以便你确认位置）
+                page.evaluate(f"""() => {{
+                    const marker = document.createElement('div');
+                    marker.style.position = 'absolute';
+                    marker.style.left = '{CLICK_X}px';
+                    marker.style.top = '{CLICK_Y}px';
+                    marker.style.width = '12px';
+                    marker.style.height = '12px';
+                    marker.style.backgroundColor = 'red';
+                    marker.style.borderRadius = '50%';
+                    marker.style.zIndex = '9999';
+                    document.body.appendChild(marker);
+                }}""")
+                
+                page.wait_for_timeout(2000)
                 page.screenshot(path=screenshot_path)
-                send_tg_photo(screenshot_path, f"账号 {acc['user']} 已执行固定坐标点击")
+                send_tg_photo(screenshot_path, f"账号 {acc['user']} 已执行点击并标注红点位置")
                 
             except Exception as e:
                 page.screenshot(path=screenshot_path)
