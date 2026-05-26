@@ -25,34 +25,37 @@ def run():
             screenshot_path = f"action_{acc['user']}.png"
             
             try:
-                # 1. 登录逻辑 (保持不变)
+                # 1. 登录
                 page.goto(login_url)
                 page.fill('input[name="username"]', acc["user"])
                 page.fill('input[name="password"]', acc["pass"])
                 page.click('button[type="submit"]')
                 page.wait_for_selector('p:has-text("Welcome back")', timeout=15000)
                 
-                # 2. 进入控制台 (保持不变)
+                # 2. 进入页面
                 page.goto(acc["url"])
                 page.wait_for_load_state("domcontentloaded")
                 
-                # 3. 精准屏蔽：只包裹点击逻辑
-                try:
-                    # 尝试定位并点击，如果按钮没加载好或者不可点，这个 try-except 会默默处理
-                    page.locator("button:has-text('Start')").first.click(force=True, timeout=5000)
-                except:
-                    # 这里什么都不写，报错了也不会打印到控制台，也不会影响后面代码运行
-                    pass
+                # --- 核心改进：更优的元素点击策略 ---
+                # 使用 XPath 模糊匹配文本，且过滤掉已禁用状态
+                # 这样即使类名变了，只要按钮叫 "Start" 就能找到
+                start_btn_xpath = "//button[contains(normalize-space(), 'Start') and not(@disabled)]"
                 
-                # 4. 截图反馈 (保持不变)
+                # 显式等待按钮变得可点击
+                page.wait_for_selector(start_btn_xpath, timeout=20000, state="attached")
+                
+                # 执行点击，并强制点击中心点
+                btn = page.locator(start_btn_xpath).first
+                btn.click(force=True, timeout=10000)
+                
+                # 3. 截图反馈
                 page.wait_for_timeout(2000)
                 page.screenshot(path=screenshot_path)
-                send_tg_photo(screenshot_path, f"账号 {acc['user']} 操作完成")
+                send_tg_photo(screenshot_path, f"账号 {acc['user']} 已使用语义化定位点击成功")
                 
             except Exception as e:
-                # 只有登录失败、无法进入网页等严重错误才会触发这里的截图报警
                 page.screenshot(path=screenshot_path)
-                send_tg_photo(screenshot_path, f"账号 {acc['user']} 发生关键错误: {str(e)[:50]}")
+                send_tg_photo(screenshot_path, f"账号 {acc['user']} 失败: {str(e)[:50]}")
             
             finally:
                 context.close()
