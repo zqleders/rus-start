@@ -36,17 +36,15 @@ def run():
                 page.goto(acc["url"])
                 page.wait_for_load_state("domcontentloaded")
                 
-                # --- 核心改进：更优的元素点击策略 ---
-                # 使用 XPath 模糊匹配文本，且过滤掉已禁用状态
-                # 这样即使类名变了，只要按钮叫 "Start" 就能找到
-                start_btn_xpath = "//button[contains(normalize-space(), 'Start') and not(@disabled)]"
-                
-                # 显式等待按钮变得可点击
-                page.wait_for_selector(start_btn_xpath, timeout=20000, state="attached")
-                
-                # 执行点击，并强制点击中心点
-                btn = page.locator(start_btn_xpath).first
-                btn.click(force=True, timeout=10000)
+                # --- 核心改进：点击逻辑增加 try-except 屏蔽错误 ---
+                try:
+                    start_btn_xpath = "//button[contains(normalize-space(), 'Start') and not(@disabled)]"
+                    page.wait_for_selector(start_btn_xpath, timeout=20000, state="attached")
+                    btn = page.locator(start_btn_xpath).first
+                    btn.click(force=True, timeout=10000)
+                except:
+                    # 屏蔽关于 Start 按钮的任何超时或报错，静默失败并继续往下走
+                    pass
                 
                 # 3. 截图反馈
                 page.wait_for_timeout(2000)
