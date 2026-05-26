@@ -18,7 +18,7 @@ def run():
     
     # 设定坐标
     CLICK_X = 1370
-    CLICK_Y = 130
+    CLICK_Y = 120
     
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
