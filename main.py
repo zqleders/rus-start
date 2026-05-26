@@ -17,7 +17,7 @@ def run():
     login_url = os.environ.get("LOGIN_URL")
     
     # 设定坐标
-    CLICK_X = 1370
+    CLICK_X = 1400
     CLICK_Y = 100
     
     with sync_playwright() as p:
