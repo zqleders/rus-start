@@ -14,6 +14,7 @@ def send_tg_photo(photo_path, caption):
 
 def run():
     accounts = json.loads(os.environ.get("ACCOUNTS_JSON", "[]"))
+    login_url = os.environ.get("LOGIN_URL")
     
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
@@ -24,36 +25,42 @@ def run():
             screenshot_path = f"screenshot_{acc['user']}.png"
             
             try:
-                # 1. 登录 (保留你原来确认有效的点击逻辑)
-                page.goto("https://my.rustix.me/auth/login")
+                # 1. 登录
+                page.goto(login_url)
                 page.fill('input[name="username"]', acc["user"])
                 page.fill('input[name="password"]', acc["pass"])
-                # 触发登录按钮
                 page.click('button[type="submit"]')
                 
-                # 2. 验证登录成功 (新增加的校验)
-                # 等待页面出现 "Welcome back" 以确认登录已完成
+                # 2. 登录验证
                 try:
-                    page.wait_for_selector('p:has-text("Welcome back")', timeout=10000)
+                    page.wait_for_selector('p:has-text("Welcome back")', timeout=15000)
                 except:
                     page.screenshot(path=screenshot_path)
                     send_tg_photo(screenshot_path, f"账号 {acc['user']} 登录失败：未检测到 'Welcome back'")
                     context.close()
                     continue
 
-                # 3. 访问目标控制台页面
+                # 3. 访问控制台
                 page.goto(acc["url"])
-                page.wait_for_load_state("networkidle")
+                # 降低等待强度，防止因长连接导致的超时
+                page.wait_for_load_state("domcontentloaded")
                 
-                # 4. 点击 Start 按钮
+                # 4. 强制点击 Start 按钮
+                # 使用直接定位并强制点击，跳过 visible 等状态检测，防止因样式导致的超时
                 start_btn = page.locator('button:has-text("Start")').first
-                start_btn.wait_for(state="visible", timeout=15000)
-                start_btn.click(force=True)
+                
+                # 增加点击的重试逻辑，确保在页面完全渲染前尝试点击
+                for i in range(3):
+                    try:
+                        start_btn.click(force=True, timeout=5000)
+                        break
+                    except:
+                        page.wait_for_timeout(2000)
                 
                 # 5. 最终状态截图
                 page.wait_for_timeout(2000)
                 page.screenshot(path=screenshot_path)
-                send_tg_photo(screenshot_path, f"账号 {acc['user']} 操作成功：已点击 Start")
+                send_tg_photo(screenshot_path, f"账号 {acc['user']} 操作完毕")
                 
             except Exception as e:
                 page.screenshot(path=screenshot_path)
