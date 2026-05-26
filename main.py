@@ -17,8 +17,8 @@ def run():
     login_url = os.environ.get("LOGIN_URL")
     
     # 设定坐标：请根据你的红点测试结果调整这里
-    CLICK_X = 730
-    CLICK_Y = 170
+    CLICK_X = 1457
+    CLICK_Y = 266
     
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
