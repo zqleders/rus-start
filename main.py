@@ -25,7 +25,7 @@ def run():
         
         for acc in accounts:
             # 保持分辨率与测试环境一致
-            context = browser.new_context(viewport={"width": 1280, "height": 720})
+            context = browser.new_context(viewport={"width": 1920, "height": 1080})
             page = context.new_page()
             screenshot_path = f"action_{acc['user']}.png"
             
