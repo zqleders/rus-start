@@ -22,49 +22,45 @@ def run():
         for acc in accounts:
             context = browser.new_context()
             page = context.new_page()
-            screenshot_path = f"screenshot_{acc['user']}.png"
+            screenshot_path = f"debug_marker_{acc['user']}.png"
             
             try:
-                # 1. 登录
+                # 登录与访问逻辑保持不变
                 page.goto(login_url)
                 page.fill('input[name="username"]', acc["user"])
                 page.fill('input[name="password"]', acc["pass"])
                 page.click('button[type="submit"]')
-                
-                # 2. 登录验证
-                try:
-                    page.wait_for_selector('p:has-text("Welcome back")', timeout=15000)
-                except:
-                    page.screenshot(path=screenshot_path)
-                    send_tg_photo(screenshot_path, f"账号 {acc['user']} 登录失败：未检测到 'Welcome back'")
-                    context.close()
-                    continue
-
-                # 3. 访问控制台
+                page.wait_for_selector('p:has-text("Welcome back")', timeout=15000)
                 page.goto(acc["url"])
-                # 降低等待强度，防止因长连接导致的超时
                 page.wait_for_load_state("domcontentloaded")
                 
-                # 4. 强制点击 Start 按钮
-                # 使用直接定位并强制点击，跳过 visible 等状态检测，防止因样式导致的超时
-                start_btn = page.locator('button:has-text("Start")').first
+                # 调试逻辑：定位 Start 按钮并标记红点
+                start_btn_xpath = "//button[contains(normalize-space(), 'Start')]"
+                page.wait_for_selector(start_btn_xpath, timeout=20000)
                 
-                # 增加点击的重试逻辑，确保在页面完全渲染前尝试点击
-                for i in range(3):
-                    try:
-                        start_btn.click(force=True, timeout=5000)
-                        break
-                    except:
-                        page.wait_for_timeout(2000)
+                # 在页面上绘制红点标记
+                page.evaluate(f"""() => {{
+                    const el = document.evaluate("{start_btn_xpath}", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                    if (el) {{
+                        const marker = document.createElement('div');
+                        marker.style.position = 'absolute';
+                        marker.style.left = (el.getBoundingClientRect().left + window.scrollX) + 'px';
+                        marker.style.top = (el.getBoundingClientRect().top + window.scrollY) + 'px';
+                        marker.style.width = '20px';
+                        marker.style.height = '20px';
+                        marker.style.backgroundColor = 'red';
+                        marker.style.borderRadius = '50%';
+                        marker.style.zIndex = '9999';
+                        document.body.appendChild(marker);
+                    }}
+                }}""")
                 
-                # 5. 最终状态截图
                 page.wait_for_timeout(2000)
                 page.screenshot(path=screenshot_path)
-                send_tg_photo(screenshot_path, f"账号 {acc['user']} 操作完毕")
+                send_tg_photo(screenshot_path, f"账号 {acc['user']} 调试：红点已标注在检测到的元素位置")
                 
             except Exception as e:
-                page.screenshot(path=screenshot_path)
-                send_tg_photo(screenshot_path, f"账号 {acc['user']} 运行异常: {str(e)[:100]}")
+                send_tg_photo(screenshot_path, f"账号 {acc['user']} 调试失败: {str(e)[:100]}")
             
             finally:
                 context.close()
