@@ -24,21 +24,23 @@ def run():
             screenshot_path = f"screenshot_{acc['user']}.png"
             
             try:
-                # 1. 登录
+                # 1. 登录 (保留你原来确认有效的点击逻辑)
                 page.goto("https://my.rustix.me/auth/login")
                 page.fill('input[name="username"]', acc["user"])
                 page.fill('input[name="password"]', acc["pass"])
+                # 触发登录按钮
                 page.click('button[type="submit"]')
                 
-                # 2. 验证登录是否成功
-                # 检查是否存在 "Welcome back" 元素
-                welcome_element = page.locator('p:has-text("Welcome back")')
-                if welcome_element.count() == 0:
+                # 2. 验证登录成功 (新增加的校验)
+                # 等待页面出现 "Welcome back" 以确认登录已完成
+                try:
+                    page.wait_for_selector('p:has-text("Welcome back")', timeout=10000)
+                except:
                     page.screenshot(path=screenshot_path)
-                    send_tg_photo(screenshot_path, f"账号 {acc['user']} 登录失败：未检测到 'Welcome back' 标识。")
+                    send_tg_photo(screenshot_path, f"账号 {acc['user']} 登录失败：未检测到 'Welcome back'")
                     context.close()
-                    continue # 中断当前账号，继续下一个
-                
+                    continue
+
                 # 3. 访问目标控制台页面
                 page.goto(acc["url"])
                 page.wait_for_load_state("networkidle")
@@ -48,7 +50,7 @@ def run():
                 start_btn.wait_for(state="visible", timeout=15000)
                 start_btn.click(force=True)
                 
-                # 5. 截图反馈
+                # 5. 最终状态截图
                 page.wait_for_timeout(2000)
                 page.screenshot(path=screenshot_path)
                 send_tg_photo(screenshot_path, f"账号 {acc['user']} 操作成功：已点击 Start")
